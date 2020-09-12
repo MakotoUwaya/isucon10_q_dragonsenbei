@@ -13,11 +13,13 @@ import (
 	"strconv"
 	"strings"
 
-	_ "github.com/go-sql-driver/mysql"
+	_ "github.com/newrelic/go-agent/v3/integrations/nrmysql"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/labstack/gommon/log"
+
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
 const Limit = 20
@@ -27,6 +29,10 @@ var db *sqlx.DB
 var mySQLConnectionData *MySQLConnectionEnv
 var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
+var app *newrelic.Application
+var client = &http.Client{Transport: newrelic.NewRoundTripper(nil)}
+
+var noAnalyze = false // true なら解析をしない
 
 type InitializeResponse struct {
 	Language string `json:"language"`
@@ -238,15 +244,57 @@ func init() {
 	json.Unmarshal(jsonText, &estateSearchCondition)
 }
 
+func NewRelicWithApplication(app *newrelic.Application) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			transactionName := fmt.Sprintf("%s [%s]", c.Path(), c.Request().Method)
+			txn := app.StartTransaction(transactionName)
+			defer txn.End()
+
+			r := newrelic.RequestWithTransactionContext(c.Request(), txn)
+			txn.SetWebRequestHTTP(r)
+			txn.SetWebResponse(c.Response().Writer)
+
+			err := next(c)
+			if err != nil {
+				txn.NoticeError(err)
+			}
+			return err
+		}
+	}
+}
+
 func main() {
+
+	var err error
+	nrAppName, nrAppNameStatus := os.LookupEnv("NEW_RELIC_APP_NAME")
+	_, noAnalyze = os.LookupEnv("NO_ANALYZE")
+	if nrAppNameStatus == false {
+		nrAppName = "ISUCON10-q-bench"
+	}
+	if ! noAnalyze {
+		app, err = newrelic.NewApplication(
+			newrelic.ConfigAppName(nrAppName),
+			newrelic.ConfigLicense(os.Getenv("NEW_RELIC_LICENSE_KEY")),
+			newrelic.ConfigDebugLogger(os.Stdout),
+		)
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
 	// Echo instance
 	e := echo.New()
-	e.Debug = true
-	e.Logger.SetLevel(log.DEBUG)
+	e.Debug = false
+	e.Logger.SetLevel(log.INFO)
 
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	if ! noAnalyze {
+		e.Use(NewRelicWithApplication(app))
+	}
 
 	// Initialize
 	e.POST("/initialize", initialize)
@@ -271,7 +319,6 @@ func main() {
 
 	mySQLConnectionData = NewMySQLConnectionEnv()
 
-	var err error
 	db, err = mySQLConnectionData.ConnectDB()
 	if err != nil {
 		e.Logger.Fatalf("DB connection failed : %v", err)
