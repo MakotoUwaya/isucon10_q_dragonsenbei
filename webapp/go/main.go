@@ -272,7 +272,7 @@ func main() {
 	if nrAppNameStatus == false {
 		nrAppName = "ISUCON10-q-bench"
 	}
-	if noAnalyze {
+	if ! noAnalyze {
 		app, err = newrelic.NewApplication(
 			newrelic.ConfigAppName(nrAppName),
 			newrelic.ConfigLicense(os.Getenv("NEW_RELIC_LICENSE_KEY")),
@@ -292,7 +292,7 @@ func main() {
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	if noAnalyze {
+	if ! noAnalyze {
 		e.Use(NewRelicWithApplication(app))
 	}
 
