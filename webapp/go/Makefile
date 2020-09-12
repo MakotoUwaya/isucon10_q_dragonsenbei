@@ -1,4 +1,4 @@
-all: isuumo
+all: build
 
 # 【必須】アプリケーションの起動のために必要
 # ライセンスキーは Account Settings -> Summary から取得できます。

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -31,6 +32,18 @@ var chairSearchCondition ChairSearchCondition
 var estateSearchCondition EstateSearchCondition
 var app *newrelic.Application
 var client = &http.Client{Transport: newrelic.NewRoundTripper(nil)}
+var botUaList = [...]*regexp.Regexp{
+	regexp.MustCompile(`ISUCONbot(-Mobile)?`),
+	regexp.MustCompile(`ISUCONbot-Image/`),
+	regexp.MustCompile(`Mediapartners-ISUCON`),
+	regexp.MustCompile(`ISUCONCoffee`),
+	regexp.MustCompile(`ISUCONFeedSeeker(Beta)?`),
+	regexp.MustCompile(`crawler \(https://isucon\.invalid/(support/faq/|help/jp/)`),
+	regexp.MustCompile(`isubot`),
+	regexp.MustCompile(`Isupider`),
+	regexp.MustCompile(`Isupider(-image)?+`),
+	regexp.MustCompile(`(bot|crawler|spider)(?:[-_ ./;@()]|$)/i`),
+}
 
 var noAnalyze = false // true なら解析をしない
 
@@ -244,6 +257,19 @@ func init() {
 	json.Unmarshal(jsonText, &estateSearchCondition)
 }
 
+func RejectBotMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ua := c.Request().Header.Get("User-Agent")
+		for _, botua := range botUaList {
+			if botua.MatchString(ua) {
+				return echo.NewHTTPError(http.StatusServiceUnavailable)
+			}
+		}
+		err := next(c)
+		return err
+	}
+}
+
 func NewRelicWithApplication(app *newrelic.Application) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -292,6 +318,7 @@ func main() {
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(RejectBotMiddleware)
 	if ! noAnalyze {
 		e.Use(NewRelicWithApplication(app))
 	}
