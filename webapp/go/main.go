@@ -939,6 +939,9 @@ func searchEstateNazotte(c echo.Context) error {
 				c.Echo().Logger.Errorf("db access is failed on executing validate if estate is in polygon : %v", err)
 				return c.NoContent(http.StatusInternalServerError)
 			}
+			if len(estatesInPolygon) > NazotteLimit {
+				break
+			}
 			queryList = []string{}
 		}
 	}
