@@ -38,7 +38,9 @@ CREATE TABLE isuumo.chair
 );
 
 use isuumo;
-CREATE INDEX `chair_pop_idx` ON `chair` (`popularity`);
+CREATE INDEX `chair_pop_idx1` ON `chair` (`popularity`);
+CREATE INDEX `chair_pop_idx2` ON `chair` (`popularity`, `id`);
 CREATE INDEX `chair_pri_idx` ON `chair` (`price`);
-CREATE INDEX `estate_pop_idx` ON `estate` (`popularity`);
+CREATE INDEX `estate_pop_idx1` ON `estate` (`popularity`);
+CREATE INDEX `estate_pop_idx2` ON `estate` (`popularity`, `id`);
 CREATE INDEX `estate_ren_idx` ON `estate` (`rent`);
