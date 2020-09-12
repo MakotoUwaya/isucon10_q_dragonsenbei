@@ -44,3 +44,4 @@ CREATE INDEX `chair_pri_idx` ON `chair` (`price`);
 CREATE INDEX `estate_pop_idx1` ON `estate` (`popularity`);
 CREATE INDEX `estate_pop_idx2` ON `estate` (`popularity`, `id`);
 CREATE INDEX `estate_ren_idx` ON `estate` (`rent`);
+CREATE INDEX `estate_latlng_idx` ON `estate` (`latitude`, `longitude`);
